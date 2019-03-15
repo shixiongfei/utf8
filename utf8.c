@@ -50,7 +50,7 @@ int utf8_isutf8(const char *bytes, int bytelen) {
   return 1;
 }
 
-int utf8_toutf8(char *utf8, int unicode) {
+int utf8_fromunicode(char *utf8, int unicode) {
   if (unicode <= 0x7f) {
     *utf8 = (char)unicode;
     return 1;
@@ -322,7 +322,7 @@ int utf8_unicodetoutf8(const wchar_t *wcstr, char *utf8str) {
   int n;
 
   while (wcsptr < end) {
-    n = utf8_toutf8(ptr, *wcsptr++);
+    n = utf8_fromunicode(ptr, *wcsptr++);
 
     if (n <= 0)
       break;

@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 int utf8_isutf8(const char *bytes, int bytelen);
-int utf8_toutf8(char *utf8, int unicode);
+int utf8_fromunicode(char *utf8, int unicode);
 int utf8_tounicode(const char *utf8, int *unicode);
 int utf8_charlen(int ch);
 int utf8_strlen(const char *utf8, int bytelen);
