@@ -39,7 +39,7 @@ int utf8_isutf8(const char *bytes, int bytelen) {
   eof = bytes + bytelen;
 
   while (bytes < eof) {
-    n = utf8_chlen(*bytes);
+    n = utf8_charlen(*bytes);
 
     if (n <= 0)
       return 0;
@@ -106,7 +106,7 @@ int utf8_tounicode(const char *utf8, int *unicode) {
   return 1;
 }
 
-int utf8_chlen(int ch) {
+int utf8_charlen(int ch) {
   /* 0xxxxxxx */
   if (0 == (ch & 0x80))
     return 1;

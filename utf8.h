@@ -21,7 +21,7 @@ extern "C" {
 int utf8_isutf8(const char *bytes, int bytelen);
 int utf8_toutf8(char *utf8, int unicode);
 int utf8_tounicode(const char *utf8, int *unicode);
-int utf8_chlen(int ch);
+int utf8_charlen(int ch);
 int utf8_strlen(const char *utf8, int bytelen);
 int utf8_index(const char *utf8, int index);
 int utf8_iswidechar(int unicode);
