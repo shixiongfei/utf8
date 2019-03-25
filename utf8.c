@@ -16,10 +16,13 @@
 #include <string.h>
 
 #if defined(_MSC_VER)
+#include <Windows.h>
 #include <malloc.h>
 #define dynarray(type, name, size)                                             \
   type *name = (type *)_alloca((size) * sizeof(type))
 #else
+#include <iconv.h>
+#include <stdio.h>
 #define dynarray(type, name, size) type name[size]
 #endif
 
@@ -50,7 +53,7 @@ int utf8_isutf8(const char *bytes, int bytelen) {
   return 1;
 }
 
-int utf8_fromunicode(char *utf8, int unicode) {
+int utf8_fromunicode(char *utf8, ucs4_t unicode) {
   if (unicode <= 0x7f) {
     *utf8 = (char)unicode;
     return 1;
@@ -73,7 +76,7 @@ int utf8_fromunicode(char *utf8, int unicode) {
   return 0;
 }
 
-int utf8_tounicode(const char *utf8, int *unicode) {
+int utf8_tounicode(const char *utf8, ucs4_t *unicode) {
   const unsigned char *s = (const unsigned char *)utf8;
 
   if (s[0] < 0xc0) {
@@ -106,7 +109,7 @@ int utf8_tounicode(const char *utf8, int *unicode) {
   return 1;
 }
 
-int utf8_charlen(int ch) {
+int utf8_charlen(ucs4_t ch) {
   /* 0xxxxxxx */
   if (0 == (ch & 0x80))
     return 1;
@@ -123,12 +126,20 @@ int utf8_charlen(int ch) {
   if (0xf0 == (ch & 0xf8))
     return 4;
 
+  /* 111110xx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx */
+  if (0xf8 == (ch & 0xfc))
+    return 5;
+
+  /* 1111110x 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx */
+  if (0xfc == (ch & 0xfe))
+    return 6;
+
   return 0;
 }
 
 int utf8_strlen(const char *utf8, int bytelen) {
-  int charlen = 0;
-  int ch, n;
+  int n, charlen = 0;
+  ucs4_t ch;
 
   if (bytelen < 0)
     bytelen = (int)strlen(utf8);
@@ -146,7 +157,7 @@ int utf8_strlen(const char *utf8, int bytelen) {
 
 int utf8_index(const char *utf8, int index) {
   const char *s = utf8;
-  int ch;
+  ucs4_t ch;
 
   if (index < 0)
     index += utf8_strlen(utf8, -1);
@@ -158,8 +169,8 @@ int utf8_index(const char *utf8, int index) {
 }
 
 typedef struct utf8_range_s {
-  int lower; /* lower inclusive */
-  int upper; /* upper exclusive */
+  ucs4_t lower; /* lower inclusive */
+  ucs4_t upper; /* upper exclusive */
 } utf8_range_t;
 
 static const utf8_range_t unicode_range_combining[] = {
@@ -237,28 +248,28 @@ static const utf8_range_t unicode_range_wide[] = {
 
 static int unicode_rangecmp(const void *key, const void *cm) {
   const utf8_range_t *range = (const utf8_range_t *)cm;
-  int ch = *(int *)key;
+  ucs4_t ch = *(ucs4_t *)key;
 
   return (ch < range->lower) ? -1 : (ch >= range->upper) ? 1 : 0;
 }
 
-static int utf8_inrange(const utf8_range_t *range, int num, int ch) {
+static int utf8_inrange(const utf8_range_t *range, int num, ucs4_t ch) {
   const utf8_range_t *r = (const utf8_range_t *)bsearch(
       &ch, range, num, sizeof(*range), unicode_rangecmp);
   return r ? 1 : 0;
 }
 
-int utf8_iswidechar(int unicode) {
+int utf8_iswidechar(ucs4_t unicode) {
   return utf8_inrange(unicode_range_wide, arraysize(unicode_range_wide),
                       unicode);
 }
 
-int utf8_iscombiningchar(int unicode) {
+int utf8_iscombiningchar(ucs4_t unicode) {
   return utf8_inrange(unicode_range_combining,
                       arraysize(unicode_range_combining), unicode);
 }
 
-int utf8_charwidth(int ch) {
+int utf8_charwidth(ucs4_t ch) {
   /* short circuit for common case */
   if (isascii(ch))
     return 1;
@@ -274,7 +285,8 @@ int utf8_charwidth(int ch) {
 }
 
 int utf8_strwidth(const char *str, int charlen) {
-  int l, ch, width = 0;
+  int l, width = 0;
+  ucs4_t ch;
 
   while (charlen) {
     l = utf8_tounicode(str, &ch);
@@ -285,44 +297,21 @@ int utf8_strwidth(const char *str, int charlen) {
   return width;
 }
 
-int utf8_utf8tounicode(const char *utf8str, wchar_t *wcstr) {
-  int len = (int)strlen(utf8str);
-  wchar_t *ptr = wcstr;
-  int ch, n;
-
-  while (len > 0) {
-    n = utf8_tounicode(utf8str, &ch);
-
-    if (n <= 0)
-      break;
-
-    *ptr++ = (wchar_t)ch;
-    utf8str += n;
-    len -= n;
-  }
-
-  return (int)(ptr - wcstr);
+static int ucs4len(const ucs4_t *ucstr) {
+  int len = 0;
+  while (*ucstr++)
+    len += 1;
+  return len;
 }
 
-int utf8_utf8toansi(const char *utf8str, char *ansistr) {
-  int utf8len = (int)strlen(utf8str);
-  int utf8strlen = utf8_strlen(utf8str, utf8len) + 1;
-
-  dynarray(wchar_t, wcstr, utf8strlen);
-  memset(wcstr, 0, utf8strlen * sizeof(wchar_t));
-
-  utf8_utf8tounicode(utf8str, wcstr);
-  return utf8_unicodetoansi(wcstr, ansistr);
-}
-
-int utf8_unicodetoutf8(const wchar_t *wcstr, char *utf8str) {
+int utf8_encode(const ucs4_t *ucstr, char *utf8str) {
   char *ptr = utf8str;
-  const wchar_t *wcsptr = wcstr;
-  const wchar_t *end = wcstr + wcslen(wcstr);
+  const ucs4_t *ucsptr = ucstr;
+  const ucs4_t *end = ucstr + ucs4len(ucstr);
   int n;
 
-  while (wcsptr < end) {
-    n = utf8_fromunicode(ptr, *wcsptr++);
+  while (ucsptr < end) {
+    n = utf8_fromunicode(ptr, *ucsptr++);
 
     if (n <= 0)
       break;
@@ -332,55 +321,78 @@ int utf8_unicodetoutf8(const wchar_t *wcstr, char *utf8str) {
   return (int)(ptr - utf8str);
 }
 
-int utf8_unicodetoansi(const wchar_t *wcstr, char *ansistr) {
-  char *ptr = ansistr;
-  const wchar_t *wcsptr = wcstr;
-  const wchar_t *end = wcstr + wcslen(wcstr);
-  int n;
-
-  mbstate_t mbstate;
-  memset(&mbstate, 0, sizeof(mbstate_t));
-
-  while (wcsptr != end) {
-    n = (int)wcrtomb(ptr, *wcsptr++, &mbstate);
-
-    if (n <= 0)
-      break;
-    ptr += n;
-  }
-
-  return (int)(ptr - ansistr);
-}
-
-int utf8_ansitoutf8(const char *ansistr, char *utf8str) {
-  int ansilen = (int)strlen(ansistr) + 1;
-
-  dynarray(wchar_t, wcstr, ansilen);
-  memset(wcstr, 0, ansilen * sizeof(wchar_t));
-
-  utf8_ansitounicode(ansistr, wcstr);
-  return utf8_unicodetoutf8(wcstr, utf8str);
-}
-
-int utf8_ansitounicode(const char *ansistr, wchar_t *wcstr) {
-  int len = (int)strlen(ansistr);
-  wchar_t *ptr = wcstr;
-  wchar_t ch;
-  int n;
-
-  mbstate_t mbstate;
-  memset(&mbstate, 0, sizeof(mbstate_t));
+int utf8_decode(const char *utf8str, ucs4_t *ucstr) {
+  int n, len = (int)strlen(utf8str);
+  ucs4_t ch, *ptr = ucstr;
 
   while (len > 0) {
-    n = (int)mbrtowc(&ch, ansistr, min(len, MB_LEN_MAX), &mbstate);
+    n = utf8_tounicode(utf8str, &ch);
 
     if (n <= 0)
       break;
 
     *ptr++ = ch;
-    ansistr += n;
+    utf8str += n;
     len -= n;
   }
 
-  return (int)(ptr - wcstr);
+  return (int)(ptr - ucstr);
+}
+
+int utf8_frommultibyte(const char *codepage, const char *mbstr, char *utf8str) {
+  int len = (int)strlen(mbstr);
+
+#ifndef _WIN32
+  iconv_t cd;
+  size_t inlen = len, outlen = len * sizeof(ucs4_t);
+
+  cd = iconv_open("UTF-8//TRANSLIT", codepage);
+
+  if (((iconv_t)(-1)) == cd)
+    return 0;
+
+  iconv(cd, (char **)&mbstr, &inlen, &utf8str, &outlen);
+  iconv_close(cd);
+
+  return len * sizeof(ucs4_t) - outlen;
+#else
+  int n;
+  dynarray(wchar_t, wcstr, len + 1);
+
+  memset(wcstr, 0, (len + 1) * sizeof(wchar_t));
+
+  n = MultiByteToWideChar(CP_ACP, 0, mbstr, len, wcstr, len + 1);
+  return WideCharToMultiByte(CP_UTF8, 0, wcstr, n, utf8str,
+                             len * sizeof(wchar_t), NULL, NULL);
+#endif
+}
+
+int utf8_tomultibyte(const char *codepage, const char *utf8str, char *mbstr) {
+  int utf8len = (int)strlen(utf8str);
+
+#ifndef _WIN32
+  iconv_t cd;
+  char tocode[32] = {0};
+  size_t inlen = utf8len, outlen = utf8len;
+
+  sprintf(tocode, "%s//TRANSLIT", codepage);
+
+  cd = iconv_open(tocode, "UTF-8");
+
+  if (((iconv_t)(-1)) == cd)
+    return 0;
+
+  iconv(cd, (char **)&utf8str, &inlen, &mbstr, &outlen);
+  iconv_close(cd);
+
+  return utf8len - outlen;
+#else
+  int n, utf8strlen = utf8_strlen(utf8str, utf8len) + 1;
+  dynarray(wchar_t, wcstr, utf8strlen);
+
+  memset(wcstr, 0, utf8strlen * sizeof(wchar_t));
+
+  n = MultiByteToWideChar(CP_UTF8, 0, utf8str, utf8len, wcstr, utf8strlen);
+  return WideCharToMultiByte(CP_ACP, 0, wcstr, n, mbstr, utf8len, NULL, NULL);
+#endif
 }

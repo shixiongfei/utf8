@@ -22,7 +22,7 @@ solution ( "utf8-test" )
   targetname ("utf8-test")
   files { "./*.h", "./*.c" }
   defines { "_UNICODE" }
-  flags { "StaticRuntime" }
+  staticruntime "On"
 
   configuration ( "Release" )
     optimize "On"
@@ -44,6 +44,7 @@ solution ( "utf8-test" )
   configuration ( "gmake" )
     warnings  "Default" --"Extra"
     defines { "LINUX_OR_MACOSX" }
+    links { "iconv" }
 
   configuration { "gmake", "macosx" }
     defines { "__APPLE__", "__MACH__", "__MRC__", "macintosh" }

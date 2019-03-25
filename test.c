@@ -13,43 +13,60 @@
 #include <locale.h>
 #include <stdio.h>
 #include <string.h>
-#include <wchar.h>
 
 #define BUFSIZE 64
 
 int main(int argc, char *argv[]) {
-  const char *string = {"HelloWorld, 你好世界！"};
+  const char string[] = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x57, 0x6f, 0x72,
+                         0x6c, 0x64, 0x2c, 0x20, 0xe4, 0xbd, 0xa0, 0xe5,
+                         0xa5, 0xbd, 0xe4, 0xb8, 0x96, 0xe7, 0x95, 0x8c,
+                         0xef, 0xbc, 0x81, 0xF0, 0x9F, 0x98, 0x80, 0x00};
 
-  char str[BUFSIZE] = {0};
-  char ansistr[BUFSIZE] = {0};
-  wchar_t wcstr[BUFSIZE] = {0};
+  ucs4_t ucstr[BUFSIZE] = {0};
+  char mbstr[BUFSIZE] = {0};
   char ustr1[BUFSIZE] = {0};
   char ustr2[BUFSIZE] = {0};
+  int i, n;
 
-  /* `setlocale` is required! */
-  setlocale(LC_ALL, "");
+  printf("test string is utf8? %s\n", utf8_isutf8(string, -1) ? "yes" : "no");
 
-  /* check this file is utf8? */
-  if (utf8_isutf8(string, -1))
-    strcpy(str, string);
-  else
-    utf8_ansitoutf8(string, str);
+  printf("test string:");
+  for (i = 0; i < (int)strlen(string); ++i)
+    printf(" 0x%0x", (unsigned char)string[i]);
+  printf("\n");
 
-  printf("test string: %s\n", str);
-  printf("is utf8? %s\n", utf8_isutf8(str, -1) ? "yes" : "no");
-  printf("strlen: %d\n", (int)strlen(str));
-  printf("utf8_strlen: %d\n", utf8_strlen(str, -1));
-  printf("utf8_strwidth: %d\n", utf8_strwidth(str, utf8_strlen(str, -1)));
-  printf("utf8 to unicode: %d\n", utf8_utf8tounicode(str, wcstr));
-  printf("utf8 to ansi: %d\n", utf8_utf8toansi(str, ansistr));
-  wprintf(L"unicode string: %ls\n", wcstr);
-  printf("unicode to utf8: %d\n", utf8_unicodetoutf8(wcstr, ustr1));
-  printf("ansi to utf8: %d\n", utf8_ansitoutf8(ansistr, ustr2));
+  printf("strlen: %d\n", (int)strlen(string));
+  printf("utf8_strlen: %d\n", utf8_strlen(string, -1));
+  printf("utf8_strwidth: %d\n", utf8_strwidth(string, utf8_strlen(string, -1)));
+
+  printf("utf8 decode: %d\n", (n = utf8_decode(string, ucstr)));
+
+  for (i = 0; i < n; ++i)
+    printf(" 0x%0x", ucstr[i]);
+  printf("\n");
+
+  printf("utf8 encode: %d\n", utf8_encode(ucstr, ustr1));
+
+  for (i = 0; i < (int)strlen(ustr1); ++i)
+    printf(" 0x%0x", (unsigned char)ustr1[i]);
+  printf("\n");
+
+  printf("utf8 to gbk: %d\n", utf8_tomultibyte("GBK", string, mbstr));
+
+  for (i = 0; i < (int)strlen(mbstr); ++i)
+    printf(" 0x%0x", (unsigned char)mbstr[i]);
+  printf("\n");
+
+  printf("utf8 from gbk: %d\n", utf8_frommultibyte("GBK", mbstr, ustr2));
+
+  for (i = 0; i < (int)strlen(ustr2); ++i)
+    printf(" 0x%0x", (unsigned char)ustr2[i]);
+  printf("\n");
+
   printf("compare: %s, %s\n",
-         (0 == memcmp(str, ustr1, strlen(ustr1))) ? "str eq ustr1"
-                                                  : "str neq ustr1",
-         (0 == memcmp(str, ustr2, strlen(ustr2))) ? "str eq ustr2"
-                                                  : "str neq ustr2");
-
+         (0 == memcmp(string, ustr1, strlen(string))) ? "str eq ustr1"
+                                                      : "str neq ustr1",
+         (0 == memcmp(string, ustr2, strlen(string))) ? "str eq ustr2"
+                                                      : "str neq ustr2");
   return 0;
 }
