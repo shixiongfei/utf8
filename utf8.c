@@ -20,6 +20,10 @@
 #include <malloc.h>
 #define dynarray(type, name, size)                                             \
   type *name = (type *)_alloca((size) * sizeof(type))
+
+#ifndef __WCHAR_MAX__
+#define __WCHAR_MAX__ WCHAR_MAX
+#endif /* WCHAR_MAX */
 #else
 #include <iconv.h>
 #include <stdio.h>
@@ -337,6 +341,59 @@ int utf8_decode(const char *utf8str, ucs4_t *ucstr) {
   }
 
   return (int)(ptr - ucstr);
+}
+
+int utf8_fromwchar(const wchar_t *wcstr, char *utf8str) {
+#if (__WCHAR_MAX__ == INT_MAX) || (__WCHAR_MAX__ == UINT_MAX)
+  return utf8_encode((const ucs4_t *)wcstr, utf8str);
+#else
+  int i, j, wslen = (int)wcslen(wcstr);
+  dynarray(ucs4_t, ucstr, wslen);
+
+  memset(ucstr, 0, wslen * sizeof(ucs4_t));
+
+  for (i = 0, j = 0; i < wslen;) {
+    if ((0xD800 <= wcstr[i] && wcstr[i] <= 0xDBFF) &&
+        (0xDC00 <= wcstr[i + 1] && wcstr[i + 1] <= 0xDFFF)) {
+      ucstr[j] = 0x10000;
+      ucstr[j] += (wcstr[i++] & 0x03FF) << 10;
+      ucstr[j++] += (wcstr[i++] & 0x03FF);
+
+      continue;
+    }
+
+    ucstr[j++] = wcstr[i++];
+  }
+
+  return utf8_encode(ucstr, utf8str);
+#endif
+}
+
+int utf8_towchar(const char *utf8str, wchar_t *wcstr) {
+#if (__WCHAR_MAX__ == INT_MAX) || (__WCHAR_MAX__ == UINT_MAX)
+  return utf8_decode(utf8str, (ucs4_t *)wcstr);
+#else
+  int i, j, n, utf8len = utf8_strlen(utf8str, -1);
+  dynarray(ucs4_t, ucstr, utf8len);
+
+  memset(ucstr, 0, utf8len * sizeof(ucs4_t));
+
+  n = utf8_decode(utf8str, ucstr);
+
+  for (i = 0, j = 0; i < n; ++i) {
+    if (0x10000 <= ucstr[i] && ucstr[i] <= 0x10FFFF) {
+      ucs4_t code = ucstr[i] - 0x10000;
+      wcstr[j++] = 0xD800 | (code >> 10);
+      wcstr[j++] = 0xDC00 | (code & 0x3FF);
+
+      continue;
+    }
+
+    wcstr[j++] = ucstr[i] & __WCHAR_MAX__;
+  }
+
+  return j;
+#endif
 }
 
 int utf8_frommultibyte(const char *codepage, const char *mbstr, char *utf8str) {

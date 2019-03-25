@@ -12,6 +12,8 @@
 #ifndef ___UTF8_H__
 #define ___UTF8_H__
 
+#include <wchar.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,6 +35,9 @@ int utf8_strwidth(const char *str, int charlen);
 
 int utf8_encode(const ucs4_t *ucstr, char *utf8str);
 int utf8_decode(const char *utf8str, ucs4_t *ucstr);
+
+int utf8_fromwchar(const wchar_t *wcstr, char *utf8str);
+int utf8_towchar(const char *utf8str, wchar_t *wcstr);
 
 int utf8_frommultibyte(const char *codepage, const char *mbstr, char *utf8str);
 int utf8_tomultibyte(const char *codepage, const char *utf8str, char *mbstr);

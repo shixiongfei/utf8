@@ -26,6 +26,8 @@ int main(int argc, char *argv[]) {
   char mbstr[BUFSIZE] = {0};
   char ustr1[BUFSIZE] = {0};
   char ustr2[BUFSIZE] = {0};
+  char ustr3[BUFSIZE] = {0};
+  wchar_t wcstr[BUFSIZE] = {0};
   int i, n;
 
   printf("test string is utf8? %s\n", utf8_isutf8(string, -1) ? "yes" : "no");
@@ -63,10 +65,25 @@ int main(int argc, char *argv[]) {
     printf(" 0x%0x", (unsigned char)ustr2[i]);
   printf("\n");
 
-  printf("compare: %s, %s\n",
+  printf("utf8 to wchar: %d\n", utf8_towchar(string, wcstr));
+
+  for (i = 0; i < (int)wcslen(wcstr); ++i)
+    printf(" 0x%0x", wcstr[i]);
+  printf("\n");
+
+  printf("utf8 from wchar: %d\n", utf8_fromwchar(wcstr, ustr3));
+
+  for (i = 0; i < (int)strlen(ustr3); ++i)
+    printf(" 0x%0x", (unsigned char)ustr3[i]);
+  printf("\n");
+
+  printf("compare: %s, %s, %s\n",
          (0 == memcmp(string, ustr1, strlen(string))) ? "str eq ustr1"
                                                       : "str neq ustr1",
          (0 == memcmp(string, ustr2, strlen(string))) ? "str eq ustr2"
-                                                      : "str neq ustr2");
+                                                      : "str neq ustr2",
+         (0 == memcmp(string, ustr3, strlen(string))) ? "str eq ustr3"
+                                                      : "str neq ustr3");
+
   return 0;
 }
