@@ -347,22 +347,20 @@ int utf8_fromwchar(const wchar_t *wcstr, char *utf8str) {
 #if (__WCHAR_MAX__ == INT_MAX) || (__WCHAR_MAX__ == UINT_MAX)
   return utf8_encode((const ucs4_t *)wcstr, utf8str);
 #else
-  int i, j, wslen = (int)wcslen(wcstr);
+  int i = 0, j = 0, wslen = (int)wcslen(wcstr);
   dynarray(ucs4_t, ucstr, wslen);
 
   memset(ucstr, 0, wslen * sizeof(ucs4_t));
 
-  for (i = 0, j = 0; i < wslen;) {
+  while (i < wslen) {
     if ((0xD800 <= wcstr[i] && wcstr[i] <= 0xDBFF) &&
         (0xDC00 <= wcstr[i + 1] && wcstr[i + 1] <= 0xDFFF)) {
       ucstr[j] = 0x10000;
       ucstr[j] += (wcstr[i++] & 0x03FF) << 10;
       ucstr[j++] += (wcstr[i++] & 0x03FF);
-
-      continue;
+    } else {
+      ucstr[j++] = wcstr[i++];
     }
-
-    ucstr[j++] = wcstr[i++];
   }
 
   return utf8_encode(ucstr, utf8str);
@@ -385,11 +383,9 @@ int utf8_towchar(const char *utf8str, wchar_t *wcstr) {
       ucs4_t code = ucstr[i] - 0x10000;
       wcstr[j++] = 0xD800 | (code >> 10);
       wcstr[j++] = 0xDC00 | (code & 0x3FF);
-
-      continue;
+    } else {
+      wcstr[j++] = ucstr[i] & __WCHAR_MAX__;
     }
-
-    wcstr[j++] = ucstr[i] & __WCHAR_MAX__;
   }
 
   return j;
