@@ -43,12 +43,13 @@ solution ( "utf8-test" )
 
   configuration ( "gmake" )
     warnings  "Default" --"Extra"
-    defines { "LINUX_OR_MACOSX" }
-    links { "iconv" }
 
   configuration { "gmake", "macosx" }
     defines { "__APPLE__", "__MACH__", "__MRC__", "macintosh" }
+    links { "iconv" }
 
   configuration { "gmake", "linux" }
     defines { "__linux__" }
 
+  configuration { "gmake", "bsd" }
+    defines { "__BSD__" }
