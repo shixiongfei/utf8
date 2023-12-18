@@ -1,7 +1,7 @@
 /*
  *  utf8.c
  *
- *  copyright (c) 2019 Xiongfei Shi
+ *  copyright (c) 2019-2023 Xiongfei Shi
  *
  *  author: Xiongfei Shi <jenson.shixf(a)gmail.com>
  *  license: Apache-2.0
@@ -177,6 +177,7 @@ typedef struct utf8_range_s {
   ucs4_t upper; /* upper exclusive */
 } utf8_range_t;
 
+/* http://unicode.org/Public/UNIDATA/UnicodeData.txt */
 static const utf8_range_t unicode_range_combining[] = {
     {0x0300, 0x0370}, {0x0483, 0x048a}, {0x0591, 0x05d0}, {0x0610, 0x061b},
     {0x064b, 0x0660}, {0x0670, 0x0671}, {0x06d6, 0x06dd}, {0x06df, 0x06e5},
@@ -212,6 +213,7 @@ static const utf8_range_t unicode_range_combining[] = {
     {0xfe20, 0xfe30},
 };
 
+/* http://unicode.org/Public/UNIDATA/EastAsianWidth.txt */
 static const utf8_range_t unicode_range_wide[] = {
     {0x1100, 0x115f},   {0x231a, 0x231b},   {0x2329, 0x232a},
     {0x23e9, 0x23ec},   {0x23f0, 0x23f0},   {0x23f3, 0x23f3},
